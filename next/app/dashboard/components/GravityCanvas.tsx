@@ -26,17 +26,22 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
     });
     engineRef.current = engine;
 
-    // 2. Setup Matter Renderer
-    const width = sceneRef.current.clientWidth || 400;
+    // Determine actual container size to prevent rendering zero dimensions on mount
+    const width = sceneRef.current.getBoundingClientRect().width || 600;
     const height = 280;
 
+    // Set canvas dimensions explicitly to guarantee resolution size matches DOM
+    canvasRef.current.width = width;
+    canvasRef.current.height = height;
+
+    // 2. Setup Matter Renderer
     const render = Render.create({
       canvas: canvasRef.current,
       engine: engine,
       options: {
         width: width,
         height: height,
-        background: "transparent",
+        background: "#0d131f", // Explicit dark contrast color for visualization
         wireframes: false,
         showVelocity: false,
       }
@@ -47,30 +52,32 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
     // 3. Setup Runner
     const runner = Runner.create();
     runnerRef.current = runner;
+    Render.run(render); // double trigger to ensure setup
     Runner.run(runner, engine);
 
     // 4. Create Boundaries (floor, walls)
-    const wallOptions = { isStatic: true, render: { fillStyle: "transparent" } };
-    const ground = Bodies.rectangle(width / 2, height + 30, width * 2, 60, wallOptions);
-    const leftWall = Bodies.rectangle(-30, height / 2, 60, height * 2, wallOptions);
-    const rightWall = Bodies.rectangle(width + 30, height / 2, 60, height * 2, wallOptions);
+    const wallOptions = { isStatic: true, render: { fillStyle: "#1e293b" } };
+    const ground = Bodies.rectangle(width / 2, height - 10, width * 2, 20, wallOptions);
+    const leftWall = Bodies.rectangle(10, height / 2, 20, height * 2, wallOptions);
+    const rightWall = Bodies.rectangle(width - 10, height / 2, 20, height * 2, wallOptions);
 
     Composite.add(engine.world, [ground, leftWall, rightWall]);
 
     // Initial Spawn of some ambient coins after a short delay to ensure engineRef is populated
     const timeoutId = setTimeout(() => {
       for (let i = 0; i < 5; i++) {
-        spawnCoin(width / 2 + (Math.random() * 100 - 50), 30, false);
+        spawnCoin(width / 2 + (Math.random() * 100 - 50), 50, false);
       }
     }, 200);
 
     // Window resize handler
     const handleResize = () => {
-      if (!sceneRef.current || !renderRef.current) return;
-      const newWidth = sceneRef.current.clientWidth;
+      if (!sceneRef.current || !renderRef.current || !canvasRef.current) return;
+      const newWidth = sceneRef.current.getBoundingClientRect().width;
+      canvasRef.current.width = newWidth;
       renderRef.current.options.width = newWidth;
-      Body.setPosition(ground, { x: newWidth / 2, y: height + 30 });
-      Body.setPosition(rightWall, { x: newWidth + 30, y: height / 2 });
+      Body.setPosition(ground, { x: newWidth / 2, y: height - 10 });
+      Body.setPosition(rightWall, { x: newWidth - 10, y: height / 2 });
     };
 
     window.addEventListener("resize", handleResize);
@@ -103,8 +110,7 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
       render: {
         fillStyle: isChest ? "#ff007f" : "#00f0ff",
         strokeStyle: "#ffffff",
-        lineWidth: 2,
-        sprite: undefined
+        lineWidth: 2
       }
     });
 
@@ -162,7 +168,7 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
   };
 
   return (
-    <div ref={sceneRef} className="relative w-full rounded-2xl border border-cyan-neon/30 bg-slate-950/80 overflow-hidden">
+    <div ref={sceneRef} className="relative w-full rounded-2xl border border-cyan-neon/30 bg-[#0d131f] overflow-hidden">
       <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-center pointer-events-none">
         <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400 bg-slate-900/80 px-2.5 py-1 rounded-md border border-white/5">
           Physics Items: {coinCount}
