@@ -57,10 +57,12 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
 
     Matter.Composite.add(engine.world, [ground, leftWall, rightWall]);
 
-    // Initial Spawn of some ambient coins
-    for (let i = 0; i < 5; i++) {
-      spawnCoin(width / 2 + (Math.random() * 100 - 50), 30, false);
-    }
+    // Initial Spawn of some ambient coins after a short delay to ensure engineRef is populated
+    const timeoutId = setTimeout(() => {
+      for (let i = 0; i < 5; i++) {
+        spawnCoin(width / 2 + (Math.random() * 100 - 50), 30, false);
+      }
+    }, 100);
 
     // Window resize handler
     const handleResize = () => {
@@ -75,6 +77,7 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      clearTimeout(timeoutId);
       if (runnerRef.current) Matter.Runner.stop(runnerRef.current);
       if (renderRef.current) Matter.Render.stop(renderRef.current);
       if (engineRef.current) Matter.Engine.clear(engineRef.current);
@@ -90,7 +93,8 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
 
   // Spawns a physical coin or treasure chest in the world
   const spawnCoin = (x: number, y: number, isChest = false) => {
-    if (!engineRef.current) return;
+    const engine = engineRef.current;
+    if (!engine) return;
 
     const radius = isChest ? 22 : 14;
     const body = Matter.Bodies.circle(x, y, radius, {
@@ -109,7 +113,7 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
     (body as any).isChest = isChest;
     (body as any).value = isChest ? 50 : 5;
 
-    Matter.Composite.add(engineRef.current.world, body);
+    Matter.Composite.add(engine.world, body);
     setCoinCount((prev) => prev + 1);
   };
 
