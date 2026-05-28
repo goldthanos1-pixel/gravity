@@ -1,6 +1,6 @@
 # Dockerfile for multi-stage Next.js frontend + Flask backend on GCP Cloud Run
 # Stage 1: Build the Next.js frontend
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 COPY next/package*.json ./
 RUN npm ci
