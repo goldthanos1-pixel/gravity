@@ -15,8 +15,12 @@ CORS(app, supports_credentials=True)
 # SQLite DB stored in the same folder – easy for a demo
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///gravity.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# JWT secret – set via env var in production
+# JWT config - Read tokens from cookies
+app.config['JWT_TOKEN_LOCATION'] = ['cookies']
+app.config['JWT_ACCESS_COOKIE_NAME'] = 'access_token'
+app.config['JWT_REFRESH_COOKIE_NAME'] = 'refresh_token'
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'dev-secret-key')
+app.config['JWT_COOKIE_CSRF_PROTECT'] = False # Disable CSRF check for simpler cross-origin demo
 jwt = JWTManager(app)
 
 db = SQLAlchemy(app)
