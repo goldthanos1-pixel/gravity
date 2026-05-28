@@ -34,6 +34,7 @@ export default function Dashboard() {
     try {
       const response = await fetch("/api/data", {
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
       });
       if (response.status === 401) {
         router.push("/");
@@ -74,6 +75,7 @@ export default function Dashboard() {
       await fetch("/api/data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ data: `Earned ${amount} points by tapping a coin!` }),
       });
       fetchRecords();
@@ -91,6 +93,7 @@ export default function Dashboard() {
       await fetch("/api/data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ data: `Earned ${reward} points by watching a sponsor video!` }),
       });
       fetchRecords();
@@ -108,6 +111,7 @@ export default function Dashboard() {
       const response = await fetch("/api/data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ data: inputText }),
       });
 
@@ -127,6 +131,7 @@ export default function Dashboard() {
     try {
       const response = await fetch(`/api/data/${id}`, {
         method: "DELETE",
+        credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to delete");
       setRecords((prev) => prev.filter((r) => r.id !== id));
