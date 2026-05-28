@@ -144,7 +144,8 @@ def index():
 
 # ---------------------------------------------------------------------------
 if __name__ == '__main__':
-    # Create DB tables on first run
-    if not os.path.exists('gravity.db'):
-        db.create_all()
+    # Create DB tables on first run within application context
+    with app.app_context():
+        if not os.path.exists('gravity.db'):
+            db.create_all()
     app.run(host='0.0.0.0', port=5000, debug=True)
