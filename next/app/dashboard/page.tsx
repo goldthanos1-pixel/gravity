@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import GravityCanvas from "./components/GravityCanvas";
+import AdTriggerModal from "./components/AdTriggerModal";
 
 interface Record {
   id: number;
@@ -15,9 +17,15 @@ export default function Dashboard() {
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [userEmail, setUserEmail] = useState("");
+  
+  // App points state
+  const [points, setPoints] = useState(100);
+  const [adModalOpen, setAdModalOpen] = useState(false);
+  const [pendingReward, setPendingReward] = useState(0);
 
-  // Load records and verify credentials on mount
+  // Anti-cheat verification
+  const [lastRequestTime, setLastRequestTime] = useState(0);
+
   useEffect(() => {
     fetchRecords();
   }, []);
@@ -28,7 +36,6 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json" },
       });
       if (response.status === 401) {
-        // Token expired or not logged in
         router.push("/");
         return;
       }
@@ -39,6 +46,56 @@ export default function Dashboard() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEarnPoints = async (amount: number, type: string) => {
+    // Basic anti-cheat: prevent spam requests under 300ms
+    const now = Date.now();
+    if (now - lastRequestTime < 300) {
+      console.warn("Spam request blocked by local engine security check.");
+      return;
+    }
+    setLastRequestTime(now);
+
+    if (type === "AD_REWARD") {
+      // Open ad modal first
+      setPendingReward(amount);
+      setAdModalOpen(true);
+      return;
+    }
+
+    // Direct points accumulation
+    setPoints((prev) => prev + amount);
+
+    // Call API internally to store points (in a real app)
+    // To satisfy dashboard record list context, we auto-generate dynamic transaction records
+    try {
+      await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: `Earned ${amount} points by tapping a coin!` }),
+      });
+      fetchRecords();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleAdComplete = async () => {
+    const reward = pendingReward || 50;
+    setPoints((prev) => prev + reward);
+    setPendingReward(0);
+
+    try {
+      await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: `Earned ${reward} points by watching a sponsor video!` }),
+      });
+      fetchRecords();
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -57,7 +114,6 @@ export default function Dashboard() {
       if (!response.ok) throw new Error("Failed to add record");
       const newRecord = await response.json();
       
-      // Dynamic translucent addition to dashboard list instantly
       setRecords((prev) => [newRecord, ...prev]);
       setInputText("");
     } catch (err) {
@@ -102,24 +158,17 @@ export default function Dashboard() {
         <div className="bg-slate-900/60 px-6 py-4 rounded-xl border border-white/5 flex items-center space-x-4">
           <div>
             <p className="text-xs uppercase font-black tracking-widest text-pink-neon neon-glow-pink">Current Points</p>
-            <p className="text-2xl font-black text-white mt-1">1,250 P</p>
+            <p className="text-2xl font-black text-white mt-1">{points.toLocaleString()} P</p>
           </div>
         </div>
       </div>
 
-      {/* Physics Canvas simulation placeholder (Interactive floating elements concept) */}
-      <div className="relative h-[250px] w-full rounded-2xl border border-cyan-neon/30 bg-slate-950/60 overflow-hidden flex flex-col items-center justify-center text-center p-6">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,240,255,0.08),transparent_70%)]"></div>
-        <div className="relative z-10 space-y-4">
-          <div className="inline-flex p-3 rounded-full bg-cyan-950/30 border border-cyan-500/20 text-2xl animate-bounce">🪙</div>
-          <h3 className="text-lg font-bold text-white uppercase tracking-wider">Gravity Canvas</h3>
-          <p className="text-xs text-slate-400 max-w-sm">
-            Floating coins fall under physics simulation. Click them to burst, watch ads to recharge, and earn rewards!
-          </p>
-          <button className="px-5 py-2.5 bg-cyan-950/40 border border-cyan-500/40 text-cyan-neon font-bold text-xs uppercase tracking-widest rounded-lg hover:bg-cyan-neon hover:text-slate-950 transition-all">
-            Play Game (Coming Soon)
-          </button>
-        </div>
+      {/* Physics Canvas simulation (Matter.js Coin Tapping Game) */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-extrabold text-slate-300 uppercase tracking-widest">
+          🎮 Gravity Canvas - Click background to spawn / Tap items to earn points
+        </h3>
+        <GravityCanvas onEarnPoints={handleEarnPoints} />
       </div>
 
       {/* Main Grid: Form and Translucent Record Cards */}
@@ -149,7 +198,7 @@ export default function Dashboard() {
         {/* Right Side: Dashboard List of Translucent Cards */}
         <div className="md:col-span-2 space-y-4">
           <h3 className="text-lg font-extrabold text-white uppercase tracking-wider flex items-center justify-between">
-            <span>Dashboard Records</span>
+            <span>Transaction Logs</span>
             <span className="text-xs px-2.5 py-1 rounded-full bg-slate-900 border border-white/5 font-normal text-slate-400">
               {records.length} total
             </span>
@@ -157,7 +206,7 @@ export default function Dashboard() {
 
           {records.length === 0 ? (
             <div className="p-8 text-center text-slate-500 border border-dashed border-slate-800 rounded-2xl">
-              No records found. Write your first thoughts on the left form!
+              No records found. Play the gravity game to generate logs!
             </div>
           ) : (
             <div className="space-y-3">
@@ -185,6 +234,13 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Reward Ads Modal Integration */}
+      <AdTriggerModal
+        isOpen={adModalOpen}
+        onClose={() => setAdModalOpen(false)}
+        onAdComplete={handleAdComplete}
+      />
     </div>
   );
 }
