@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import Matter from "matter-js";
+import { Engine, Render, Runner, Bodies, Composite, Body } from "matter-js";
 
 interface GravityCanvasProps {
   onEarnPoints: (amount: number, type: string) => void;
@@ -10,9 +10,9 @@ interface GravityCanvasProps {
 export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
   const sceneRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const engineRef = useRef<Matter.Engine | null>(null);
-  const renderRef = useRef<Matter.Render | null>(null);
-  const runnerRef = useRef<Matter.Runner | null>(null);
+  const engineRef = useRef<Engine | null>(null);
+  const renderRef = useRef<Render | null>(null);
+  const runnerRef = useRef<Runner | null>(null);
 
   const [coinCount, setCoinCount] = useState(0);
   const [gravityY, setGravityY] = useState(1); // 1 = standard down gravity
@@ -21,7 +21,7 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
     if (!sceneRef.current || !canvasRef.current) return;
 
     // 1. Setup Matter Engine
-    const engine = Matter.Engine.create({
+    const engine = Engine.create({
       gravity: { y: gravityY, x: 0, scale: 0.001 }
     });
     engineRef.current = engine;
@@ -30,7 +30,7 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
     const width = sceneRef.current.clientWidth || 400;
     const height = 280;
 
-    const render = Matter.Render.create({
+    const render = Render.create({
       canvas: canvasRef.current,
       engine: engine,
       options: {
@@ -42,35 +42,35 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
       }
     });
     renderRef.current = render;
-    Matter.Render.run(render);
+    Render.run(render);
 
     // 3. Setup Runner
-    const runner = Matter.Runner.create();
+    const runner = Runner.create();
     runnerRef.current = runner;
-    Matter.Runner.run(runner, engine);
+    Runner.run(runner, engine);
 
     // 4. Create Boundaries (floor, walls)
     const wallOptions = { isStatic: true, render: { fillStyle: "transparent" } };
-    const ground = Matter.Bodies.rectangle(width / 2, height + 30, width * 2, 60, wallOptions);
-    const leftWall = Matter.Bodies.rectangle(-30, height / 2, 60, height * 2, wallOptions);
-    const rightWall = Matter.Bodies.rectangle(width + 30, height / 2, 60, height * 2, wallOptions);
+    const ground = Bodies.rectangle(width / 2, height + 30, width * 2, 60, wallOptions);
+    const leftWall = Bodies.rectangle(-30, height / 2, 60, height * 2, wallOptions);
+    const rightWall = Bodies.rectangle(width + 30, height / 2, 60, height * 2, wallOptions);
 
-    Matter.Composite.add(engine.world, [ground, leftWall, rightWall]);
+    Composite.add(engine.world, [ground, leftWall, rightWall]);
 
     // Initial Spawn of some ambient coins after a short delay to ensure engineRef is populated
     const timeoutId = setTimeout(() => {
       for (let i = 0; i < 5; i++) {
         spawnCoin(width / 2 + (Math.random() * 100 - 50), 30, false);
       }
-    }, 100);
+    }, 200);
 
     // Window resize handler
     const handleResize = () => {
       if (!sceneRef.current || !renderRef.current) return;
       const newWidth = sceneRef.current.clientWidth;
       renderRef.current.options.width = newWidth;
-      Matter.Body.setPosition(ground, { x: newWidth / 2, y: height + 30 });
-      Matter.Body.setPosition(rightWall, { x: newWidth + 30, y: height / 2 });
+      Body.setPosition(ground, { x: newWidth / 2, y: height + 30 });
+      Body.setPosition(rightWall, { x: newWidth + 30, y: height / 2 });
     };
 
     window.addEventListener("resize", handleResize);
@@ -78,9 +78,9 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
     return () => {
       window.removeEventListener("resize", handleResize);
       clearTimeout(timeoutId);
-      if (runnerRef.current) Matter.Runner.stop(runnerRef.current);
-      if (renderRef.current) Matter.Render.stop(renderRef.current);
-      if (engineRef.current) Matter.Engine.clear(engineRef.current);
+      if (runnerRef.current) Runner.stop(runnerRef.current);
+      if (renderRef.current) Render.stop(renderRef.current);
+      if (engineRef.current) Engine.clear(engineRef.current);
     };
   }, []);
 
@@ -97,7 +97,7 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
     if (!engine) return;
 
     const radius = isChest ? 22 : 14;
-    const body = Matter.Bodies.circle(x, y, radius, {
+    const body = Bodies.circle(x, y, radius, {
       restitution: 0.6, // elasticity
       friction: 0.1,
       render: {
@@ -113,20 +113,21 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
     (body as any).isChest = isChest;
     (body as any).value = isChest ? 50 : 5;
 
-    Matter.Composite.add(engine.world, body);
+    Composite.add(engine.world, body);
     setCoinCount((prev) => prev + 1);
   };
 
   // Click handler on canvas to destroy elements or spawn on empty space
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current || !engineRef.current) return;
+    const engine = engineRef.current;
+    if (!canvasRef.current || !engine) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
     // Check if user clicked an existing coin
-    const bodies = Matter.Composite.allBodies(engineRef.current.world);
+    const bodies = Composite.allBodies(engine.world);
     let clickedAny = false;
 
     for (let body of bodies) {
@@ -135,8 +136,8 @@ export default function GravityCanvas({ onEarnPoints }: GravityCanvasProps) {
         const radius = (body as any).isChest ? 22 : 14;
 
         if (dist <= radius) {
-          // Destory item on tap
-          Matter.Composite.remove(engineRef.current.world, body);
+          // Destroy item on tap
+          Composite.remove(engine.world, body);
           setCoinCount((prev) => Math.max(0, prev - 1));
 
           // Trigger particle blast or reward points
